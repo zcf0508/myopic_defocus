@@ -113,6 +113,7 @@ class OverlayWindow(QWidget):
         self._frame_count = 0
         self._pending_frame = None  # 跳帧：只保留最新帧
         self._processing = False
+        self._paused = False  # 暂停状态
         
     def apply_effect(self, frame):
         """Gaussian Blur on blue/green channels - GPU 加速版 (OpenCL via UMat)
@@ -160,6 +161,9 @@ class OverlayWindow(QWidget):
     def on_wgc_frame(self, frame: Frame, capture_control: InternalCaptureControl):
         """WGC 回调 - 在捕获线程中执行，尽量快速返回"""
         try:
+            # 暂停时跳过处理
+            if self._paused:
+                return
             # 如果正在处理，跳过这帧（保留最新的）
             if self._processing:
                 return
@@ -203,6 +207,19 @@ class OverlayWindow(QWidget):
         self.blur_b = blur_b
         self.blur_g = blur_g
         self.strength = strength
+    
+    def pause(self):
+        """暂停效果"""
+        self._paused = True
+        self.hide()
+    
+    def resume(self):
+        """恢复效果"""
+        self._paused = False
+        self.show()
+    
+    def is_paused(self):
+        return self._paused
     
     def start(self):
         self.setup_passthrough()
@@ -255,6 +272,7 @@ class ControlWindow(QWidget):
     def __init__(self, overlay):
         super().__init__()
         self.overlay = overlay
+        self.tray = None  # 稍后设置
         self.config = load_config()
         self.setWindowTitle("近视散焦 - WGC版")
         self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
@@ -297,8 +315,9 @@ class ControlWindow(QWidget):
         btns = QHBoxLayout()
         b1 = QPushButton("应用"); b1.clicked.connect(self.apply)
         b2 = QPushButton("保存默认"); b2.clicked.connect(self.save)
+        self.pause_btn = QPushButton("暂停"); self.pause_btn.clicked.connect(self.toggle_pause)
         b3 = QPushButton("退出"); b3.clicked.connect(QApplication.quit)
-        btns.addWidget(b1); btns.addWidget(b2); btns.addWidget(b3)
+        btns.addWidget(b1); btns.addWidget(b2); btns.addWidget(self.pause_btn); btns.addWidget(b3)
         layout.addLayout(btns)
         
         self.setLayout(layout)
@@ -324,6 +343,24 @@ class ControlWindow(QWidget):
     
     def save(self):
         save_config(self.get_config())
+    
+    def toggle_pause(self):
+        if self.overlay.is_paused():
+            self.overlay.resume()
+            self.pause_btn.setText("暂停")
+        else:
+            self.overlay.pause()
+            self.pause_btn.setText("启动")
+        # 同步托盘菜单状态
+        if self.tray:
+            self.tray.update_pause_action()
+    
+    def update_pause_btn(self):
+        """同步按钮状态"""
+        if self.overlay.is_paused():
+            self.pause_btn.setText("启动")
+        else:
+            self.pause_btn.setText("暂停")
     
     def closeEvent(self, e):
         # 关闭时隐藏到托盘，不退出程序
@@ -357,6 +394,11 @@ class TrayIcon(QSystemTrayIcon):
         
         self.menu.addSeparator()
         
+        self.pause_action = self.menu.addAction("暂停")
+        self.pause_action.triggered.connect(self.toggle_pause)
+        
+        self.menu.addSeparator()
+        
         self.quit_action = self.menu.addAction("退出程序")
         self.quit_action.triggered.connect(self.do_quit)
         
@@ -371,6 +413,23 @@ class TrayIcon(QSystemTrayIcon):
         self.control.show()
         self.control.raise_()
         self.control.activateWindow()
+    
+    def toggle_pause(self):
+        if self.overlay.is_paused():
+            self.overlay.resume()
+            self.pause_action.setText("暂停")
+        else:
+            self.overlay.pause()
+            self.pause_action.setText("启动")
+        # 同步设置窗口的按钮状态
+        self.control.update_pause_btn()
+    
+    def update_pause_action(self):
+        """同步菜单状态"""
+        if self.overlay.is_paused():
+            self.pause_action.setText("启动")
+        else:
+            self.pause_action.setText("暂停")
     
     def do_quit(self):
         self.overlay.close()
@@ -396,6 +455,7 @@ if __name__ == '__main__':
     
     # 创建系统托盘
     tray = TrayIcon(app, control, overlay)
+    control.tray = tray  # 互相引用以同步状态
     
     overlay.show()
     overlay.start()
