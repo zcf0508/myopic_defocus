@@ -1,0 +1,15 @@
+# 项目依赖
+# 使用 pip install -r requirements.txt 安装
+
+# GUI 框架
+PySide6>=6.0.0
+
+# 图像处理
+opencv-python>=4.5.0
+numpy>=1.20.0
+
+# Windows Graphics Capture API
+windows-capture>=1.0.0
+
+# 打包工具
+pyinstaller>=5.0.0
