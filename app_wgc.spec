@@ -24,7 +24,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name='色差模糊WGC',
+    name='近视散焦',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
