@@ -1,6 +1,12 @@
 # 近视散焦 (Myopic Defocus)
 
+> ! THIS IS A FULL VIBE CODING PROJECT.
+
 基于 [Refractify](https://refractify.io/) 原理的 Windows 桌面近视散焦效果工具。
+
+你可能在找 [myopic_defocus 的浏览器扩展项目](https://github.com/refractify/myopic_defocus)。
+
+另外有朋友开发了 [近视散焦模拟器（C++ / DirectX 11 高性能）](https://github.com/Lerrenp/Myopic_defocus-cpp-build)。
 
 ## 原理
 
